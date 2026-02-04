@@ -41,7 +41,7 @@ for row in db_rows:
 
 print("\n[Case 2] 인덱스(순번)가 필요할 때 (enumerate)")
 # enumerate: (0, 'user_a'), (1, 'user_b')... 형태로 반환
-for i, row in enumerate(db_rows, start=1): 
+for i, row in enumerate(db_rows, start=1):
     print(f"{i}번째 회원: {row}")
 
 print("-" * 30)
