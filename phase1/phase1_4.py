@@ -37,7 +37,7 @@ class CreditCardPayment(PaymentProcessor):
     # 오버라이딩 (Overriding)
     def pay(self, amount):
         # 실제 로직 구현
-        print(f"카드번호 {self.card_number}fh {amount}원 결제 승인 완료.")
+        print(f"카드번호 {self.card_number}로 {amount}원 결제 승인 완료.")
 
 # 3. 자식 클래스 (Ingeritance) - 카카오페이 결제
 class KakaoPayment(PaymentProcessor):
