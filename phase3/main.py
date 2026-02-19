@@ -1,5 +1,5 @@
 # --- [Phase 3-1. 첫 FastAPI 서버 실행 및 Swagger UI 확인]
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, Header
 from pydantic import BaseModel, Field
 
 # 1. FastAPI 애플리케이션 인스턴스 생성
@@ -69,4 +69,43 @@ async def create_user(user: UserCreate):
     return {
         "message": "회원가입이 성공적으로 완료되었습니다.",
         "user_info": user # 객체를 그냥 리턴해도 JSON으로 나감
+    }
+
+
+# --- [Phase 3-4. Dependency Injection (의존성 주입) ]
+
+# 1. 의존성 함수 만들기 (DB 세션 제공자 시뮬레이션)
+# Phase 4에서 실제 MySQL 연결 코드로 교체될 뼈대임
+def get_db_session():
+    print(">>> [DI] 가짜 DB 커넥션을 엽니다.")
+    db = "MySQL_Session_Object" # 실제로는 DB 연결 객체가 들어감
+
+    try:
+        # return 대신 yield를 쓰면, 여기서 값을 던져주고 잠시 '대기'한다.
+        yield db
+    finally:
+        # API 처리가 끝난 후(혹은 에러가 난 후) 이 부분이 마저 실행된다.
+        print("<<< [DI] 가짜 DB 커넥션을 안전하게 닫습니다.")
+
+# 2. 의존성 함수 만들기 (보안 토큰 검사기 시뮬레이션)
+def verify_token(x_token: str = Header(..., description="인증 토큰 (super-secret-token 입력)")):
+    if x_token != "super-secret-token":
+        # 조건에 맞지 않으면 즉시 401 에러를 발생시키고 API 실행을 차단한다.
+        raise HTTPException(status_code=401, detail="유효하지 않은 토큰입니다.")
+    return x_token
+
+# 3. API 라우터에 의존성 주입하기 (Depends 활용)
+# 매개변수 자리에 'Depends(함수명)'을 적어주기만 하면 끝
+@app.get("/secure-data/")
+async def get_secure_data(
+    db: str = Depends(get_db_session), # DB 세션을 주입받음
+    token: str = Depends(verify_token) # 토큰 검증 결과를 주입받음
+):
+    # 이 함수(API) 내부에는 DB를 열고 닫거나, 토큰을 검사하는 로직이 '단 한 줄도' 없다.
+    # 오직 핵심 비즈니스 로직에만 집중할 수 있다.
+
+    return {
+        "message": "보안 데이터 접근 성공!",
+        "db_status": f"{db} 사용 중",
+        "your_token": token
     }
