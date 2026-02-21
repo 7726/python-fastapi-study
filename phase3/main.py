@@ -1,5 +1,6 @@
 # --- [Phase 3-1. 첫 FastAPI 서버 실행 및 Swagger UI 확인]
-from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi import FastAPI, Depends, HTTPException, Header, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 # 1. FastAPI 애플리케이션 인스턴스 생성
@@ -72,7 +73,7 @@ async def create_user(user: UserCreate):
     }
 
 
-# --- [Phase 3-4. Dependency Injection (의존성 주입) ]
+# --- [Phase 3-4. Dependency Injection (의존성 주입)]
 
 # 1. 의존성 함수 만들기 (DB 세션 제공자 시뮬레이션)
 # Phase 4에서 실제 MySQL 연결 코드로 교체될 뼈대임
@@ -109,3 +110,53 @@ async def get_secure_data(
         "db_status": f"{db} 사용 중",
         "your_token": token
     }
+
+
+# --- [Phase 3-5. Error Handling (에러 핸들링)]
+
+# 1. 커스텀 예외 클래스 정의 (비즈니스 로직용)
+# Python의 기본 Exception 클래스를 상속받아 우리만의 에러 이름을 만든다.
+class OutOfStockException(Exception):
+    def __init__(self, item_name: str):
+        self.item_name = item_name
+
+# 2. 비즈니스 예외 처리기 등록 (Spring의 @eExceptionHandler 역할)
+# 서버 어디선가 OutOfStockException이 터지면 무조건 이 함수가 낚아챔
+@app.exception_handler(OutOfStockException)
+async def out_of_stock_handler(request: Request, exc: OutOfStockException):
+    print(f"[Business Error] 재고 부족 발생: {exc.item_name}")
+    return JSONResponse(
+        status_code=400,
+        content={
+            "error_code": "ERR_STOCK_001",
+            "message": f"죄송합니다. '{exc.item_name}'의 재고가 부족합니다."
+        }
+    )
+
+# 3. 최상위 500 에러 처리기 (서버 다운 방지용 최후의 보루)
+# 잡지 못한 모든 에러(Exception)를 여기서 낚아채서 클라이언트에게는 안전한 메시지만 보냄
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    # 실무: 여기서 에러 로그를 파일에 남기거나 슬랙(Slack) API로 알림을 보냄
+    print(f"[Critical Error] 알 수 없는 시스템 오류: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error_code": "ERR_SYS_500",
+            "message": "서버 내부 오류가 발생했습니다. 관리자에게 문의하세요."
+        }
+    )
+
+# 4. 테스트용 라우터 (API)
+@app.get("/buy/{item_name}")
+async def buy_item(item_name: str):
+    if item_name == "티셔츠":
+        # 의도된 비즈니스 에러 발생 (try-except 없이 테스트)
+        raise OutOfStockException(item_name=item_name)
+    
+    elif item_name == "폭탄":
+        # 의도치 않은 시스템 에러 발생 (0으로 나누기 런타임 에러)
+        result = 1 / 0
+        return result
+    
+    return {"message": f"{item_name} 구매 완료!"}
