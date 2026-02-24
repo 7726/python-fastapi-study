@@ -4,7 +4,13 @@ from core.config import settings
 
 # 1. DB 접속 URL 설정
 # 형태: mysql+aiomysql://계정:비밀번호@주소:포트/DB이름
-DATABASE_URL = f"mysql+aiomysql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_PORT}/{settings.DB_NAME}"
+DATABASE_URL = f"mysql+aiomysql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+
+# --- [디버깅용 출력문 추가] ---
+print(f"!!! 디버그 DB_HOST: {settings.DB_HOST}")
+print(f"!!! 디버그 DB_PORT: {settings.DB_PORT}")
+print(f"!!! 디버그 전체 URL: {DATABASE_URL}")
+# -----------------------------
 
 # 2. 비동기 엔진(Engine) 생성
 # echo=True 로 설정하면, ORM이 생성하는 실제 SQL 쿼리가 터미널에 전부 출력된다 (쿼리 튜닝 시 필수)
