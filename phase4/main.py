@@ -1,11 +1,11 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from core.database import engine, Base
 from core.models import User  # 중요: 모델을 import 해야 SQLAlchemy가 테이블을 인지한다.
 from core.database import get_db
-from core.schemas import UserCreate, UserResponse
+from core.schemas import UserCreate, UserResponse, UserUpdate
 
 # --- [서버 생명주기(Lifespan) 이벤트 설정] ---
 # 서버가 켜질 때 딱 1번 실행되고, 꺼질 때 1번 실행되는 공간이다.
@@ -55,7 +55,7 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
 
     return new_user
 
-# --- 2. 회원 모록 조회 (SELECT) ---
+# --- 2. 회원 목록 조회 (SELECT) ---
 @app.get("/users", response_model=list[UserResponse])
 async def get_users(db: AsyncSession = Depends(get_db)):
     # 1. SELEcT * FROM users 쿼리 생성
@@ -68,3 +68,48 @@ async def get_users(db: AsyncSession = Depends(get_db)):
     users = result.scalars().all()
 
     return users
+
+# --- [Phase 4-4: CRUD API 구현 (Update / Delete)] ---
+# --- 1. 회원 정보 수정 (UPDATE) ---
+@app.patch("/users/{user_id}", response_model=UserResponse)
+async def update_user(user_id: int, user_data: UserUpdate, db: AsyncSession = Depends(get_db)):
+    # 1. 대상 조회 (SELECT * FROM users WHERE id = user_id LIMIT 1)
+    query = select(User).where(User.id == user_id)
+    result = await db.execute(query)
+    target_user = result.scalars().first()  # 객체 1개 가져오기
+
+    # 2. 예외 처리: 데이터가 없으면 404 Not Found 에러 뱉기
+    if not target_user:
+        raise HTTPException(status_code=404, detail="해당 회원을 찾을 수 없습니다.")
+    
+    # 3. 데이터 조작 (클라이언트가 보낸 값만 덮어쓰기)
+    if user_data.password is not None:
+        target_user.password = user_data.password
+    if user_data.age is not None:
+        target_user.age = user_data.age
+    
+    # 4. DB에 반영 (이떄 UPDATE 쿼리가 날아감)
+    # 객체의 속성을 바꾼 것만으로도 SQLAlchemy가 변경 사항을 눈치챈다. (Dirty Tracking)
+    await db.commit()
+    await db.refresh(target_user)
+
+    return target_user
+
+# --- 2. 회원 정보 삭제 (DELETE) ---
+@app.delete("/users/{user_id}")
+async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
+    # 1. 대상 조회
+    query = select(User).where(User.id == user_id)
+    result = await db.execute(query)
+    target_user = result.scalars().first()
+
+    if not target_user:
+        raise HTTPException(status_code=404, detail="해당 회원을 찾을 수 없습니다.")
+    
+    # 2. 삭제 명령
+    await db.delete(target_user)
+
+    #. 3. DB 반영 (이때 DELETE 쿼리가 날아감)
+    await db.commit()
+
+    return {"message": f"{user_id}번 회원이 성공적으로 삭제되었습니다."}

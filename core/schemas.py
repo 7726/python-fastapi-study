@@ -15,3 +15,9 @@ class UserResponse(BaseModel):
 
     # ORM 객체(Entity)를 Pydantic 모델로 자동 변환하게 해주는 마법의 설정 (Pydantic v2 문법)
     model_config = ConfigDict(from_attributes=True)
+
+# 3. 회원 정보 수정용 DTO
+# 수정할 때는 나이나 비밀번호 등 일부만 변경하는 경우가 많으므로, 전부 Optional(| None)로 처리한다.
+class UserUpdate(BaseModel):
+    password: str | None = Field(default=None, min_length=4)
+    age: int | None = None
