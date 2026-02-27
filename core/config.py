@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     DB_PORT: str
     DB_NAME: str
 
+    SECRET_KEY: str
+    ALGORITHM: str
+    ACCESS_TOKEN_EXPIRE_MINUTES: int
+
     # 루트 경로에 있는 .env 파일을 읽어오라는 설정
     model_config = SettingsConfigDict(env_file=".env")
 

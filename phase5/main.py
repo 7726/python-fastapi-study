@@ -2,6 +2,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from fastapi.security import OAuth2PasswordRequestForm
+from core.security import verify_password, create_access_token
 
 from core.database import engine, Base, get_db
 from core.models import User
@@ -46,3 +48,29 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
     await db.refresh(new_user)
 
     return new_user
+
+
+# --- [Phase 5-2. 로그인 (토큰 발급)] ---
+@app.post("/login")
+async def login(
+    # 주의: OAuth2 표준에 따라 JSON이 아닌 Form 데이터(x-www-form-urlencoded)로 받는다.
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_db)
+):
+    # 1. DB에서 사용자 조회
+    query = select(User).where(User.username == form_data.username)
+    result = await db.execute(query)
+    user = result.scalars().first()
+
+    # 2. 예외 처리: 사용자가 없거나 비밀번호가 틀린 경우 (보안상 동일한 에러 메시지 사용)
+    if not user or not verify_password(form_data.password, user.password):
+        raise HTTPException(status_code=400, detail="아이디 또는 비밀번호가 틀렸습니다.")
+    
+    # 3. 비밀번호가 맞다면 JWT 토큰 생성 (sub는 Subject의 약자로, 보통 식별자를 넣는다)
+    access_token = create_access_token(data={"sub": user.username})
+
+    # 4. OAuth2 표준 규격에 맞춘 JSON 응답
+    return {
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
