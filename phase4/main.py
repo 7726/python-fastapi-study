@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, desc
 from core.database import engine, Base
 from core.models import User  # 중요: 모델을 import 해야 SQLAlchemy가 테이블을 인지한다.
 from core.database import get_db
@@ -55,19 +55,19 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
 
     return new_user
 
-# --- 2. 회원 목록 조회 (SELECT) ---
-@app.get("/users", response_model=list[UserResponse])
-async def get_users(db: AsyncSession = Depends(get_db)):
-    # 1. SELEcT * FROM users 쿼리 생성
-    query = select(User)
+# --- 2. 회원 목록 조회 (SELECT) => Phase 4-5에서 고도화를 위해 주석 처리 ---
+# @app.get("/users", response_model=list[UserResponse])
+# async def get_users(db: AsyncSession = Depends(get_db)):
+#     # 1. SELEcT * FROM users 쿼리 생성
+#     query = select(User)
 
-    # 2. 비동기로 쿼리 실행
-    result = await db.execute(query)
+#     # 2. 비동기로 쿼리 실행
+#     result = await db.execute(query)
 
-    # 3. 결과물에서 데이터만 리스트 형태로 추출
-    users = result.scalars().all()
+#     # 3. 결과물에서 데이터만 리스트 형태로 추출
+#     users = result.scalars().all()
 
-    return users
+#     return users
 
 # --- [Phase 4-4: CRUD API 구현 (Update / Delete)] ---
 # --- 1. 회원 정보 수정 (UPDATE) ---
@@ -113,3 +113,35 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
     await db.commit()
 
     return {"message": f"{user_id}번 회원이 성공적으로 삭제되었습니다."}
+
+
+# --- [Phase 4-5: 조건부 검색 (동적 쿼리 & 정렬)] ---
+# Phase 3-2에서 배운 Query Parameter(쿼리 스트링)를 활용
+@app.get("/users", response_model=list[UserResponse])
+async def search_users(
+    username_keyword: str | None = None, # 검색어 (선택)
+    min_age: int | None = None, # 최소 나이 (선택)
+    db: AsyncSession = Depends(get_db)
+):
+    # 1. 기본 쿼리 뼈대 생성 (SELECT * FROM users)
+    query = select(User)
+
+    # 2. 동적 쿼리
+    # 클라이언트가 파라미터를 보냈을 떄만 조건이 추가됨
+    if username_keyword:
+        # LIKE '%키워드%' 검색
+        query = query.where(User.username.like(f"%{username_keyword}%"))
+    
+    if min_age is not None:
+        # 나이가 min_age 이상(>=)인 사람만 검색
+        query = query.where(User.age >= min_age)
+    
+    # 3. 정렬 (ORDER BY id DESC)
+    # 최신 가입자가 먼저 나오도록 내림차순 정렬을 추가함
+    query = query.order_by(desc(User.id))
+
+    # 4. 쿼리 실행 및 결과 추출
+    result = await db.execute(query)
+    users = result.scalars().all()
+
+    return users
