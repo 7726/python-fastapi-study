@@ -15,3 +15,5 @@ class User(Base):
 
     # 선택적(Null 허용) 컬럼은 파이썬 타입에도 | None 을 붙이고, DB 옵션에도 nullable=True를 준다.
     age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    email: Mapped[str | None] = mapped_column(String(100), nullable=True)
