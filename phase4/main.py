@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, text
 from core.database import engine, Base
 from core.models import User  # 중요: 모델을 import 해야 SQLAlchemy가 테이블을 인지한다.
 from core.database import get_db
@@ -34,7 +34,7 @@ app = FastAPI(title="Phase 4 서버 (DB 연동)", lifespan=lifespan)
 async def root():
     return {"message": "Phase 4 서버 구동 완료! 터미널에서 테이블 생성 로그를 확인하세요."}
 
-# --- [Phase 4-3: CRUD API 구현 (Select / Insert)] ---
+# --- [Phase 4-3: CRUD API 구현 (Select / Insert / Update / Delete)] ---
 # --- 1. 회원가입 (INSERT) ---
 # response_model=UserResponse 를 주면, 리턴할 때 비밀번호를 쏙 빼고 응답한다.
 @app.post("/users", response_model=UserResponse)
@@ -69,8 +69,7 @@ async def create_user(user_data: UserCreate, db: AsyncSession = Depends(get_db))
 
 #     return users
 
-# --- [Phase 4-4: CRUD API 구현 (Update / Delete)] ---
-# --- 1. 회원 정보 수정 (UPDATE) ---
+# --- 3. 회원 정보 수정 (UPDATE) ---
 @app.patch("/users/{user_id}", response_model=UserResponse)
 async def update_user(user_id: int, user_data: UserUpdate, db: AsyncSession = Depends(get_db)):
     # 1. 대상 조회 (SELECT * FROM users WHERE id = user_id LIMIT 1)
@@ -95,7 +94,7 @@ async def update_user(user_id: int, user_data: UserUpdate, db: AsyncSession = De
 
     return target_user
 
-# --- 2. 회원 정보 삭제 (DELETE) ---
+# --- 4. 회원 정보 삭제 (DELETE) ---
 @app.delete("/users/{user_id}")
 async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
     # 1. 대상 조회
@@ -115,7 +114,7 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
     return {"message": f"{user_id}번 회원이 성공적으로 삭제되었습니다."}
 
 
-# --- [Phase 4-5: 조건부 검색 (동적 쿼리 & 정렬)] ---
+# --- [Phase 4-3 Bonus: 조건부 검색 (동적 쿼리 & 정렬)] ---
 # Phase 3-2에서 배운 Query Parameter(쿼리 스트링)를 활용
 @app.get("/users", response_model=list[UserResponse])
 async def search_users(
@@ -145,3 +144,54 @@ async def search_users(
     users = result.scalars().all()
 
     return users
+
+# --- [Phase 4-4. Raw SQL 활용] ---
+@app.get("/users/stats/raw")
+async def get_user_stats_raw(db: AsyncSession = Depends(get_db)):
+    # 1. ORM으로 짜기 복잡한 쿼리를 text() 안에 문자열로 그대로 작성한다.
+    raw_query = text(
+        """
+        SELECT
+            COUNT(id) AS total_users,
+            AVG(age) AS average_age,
+            Max(age) AS max_age
+        FROM users
+        WHERE age IS NOT NULL
+        """
+    )
+
+    # 2. 비동기 DB 세션으로 쿼리 실행
+    result = await db.execute(raw_query)
+
+    # 3. 결과 매핑 (중요)
+    # scalars().all()은 ORM 객체 전용이다.
+    # Raw SQL은 .mappings().fetchone() (단일 행) 또는 .mappings().fetchall() (여러 행)을 사용하여
+    # {컬럼명: 값} 형태의 딕셔너리로 뽑아낸다.
+    row = result.mappings().fetchone()
+
+    # 4. JSON으로 변환되어 리턴
+    if row:
+        return dict(row) # 딕셔너리로 변환해서 리턴하면 FastAPI가 JSON으로 쏴준다.
+    return {"message": "데이터가 없습니다."}
+
+@app.get("/users/raw/search")
+async def get_user_raw_search(
+    limit_count: int = 5,
+    db: AsyncSession = Depends(get_db)
+):
+    raw_query = text(
+        """
+        SELECT *
+        FROM users 
+        ORDER BY age DESC
+        LIMIT :limit
+        """
+    )
+
+    result = await db.execute(raw_query, {"limit": limit_count})
+
+    row = result.mappings().fetchall()
+
+    if row:
+        return [dict(r) for r in row]
+    return {"message": "데이터가 없습니다."}
