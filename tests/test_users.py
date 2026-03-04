@@ -1,5 +1,6 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
+import time
 
 from phase5_layered.main import app
 
@@ -14,9 +15,13 @@ async def test_register_user_success():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
 
+        # 매번 테스트가 돌 때마다 유니크한 아이디 만들기
+        unique_id = int(time.time())
+        test_username = f"test_user_{unique_id}"
+
         # 2. API에 보낼 테스트용 데이터 셋업 (매번 새로운 유저로 테스트하기 위해 999번 부여)
         test_user = {
-            "username": "test_user_999",
+            "username": test_username,
             "password": "testpassword123",
             "age": 30
         }
@@ -30,7 +35,7 @@ async def test_register_user_success():
 
     # 응답 데이터 검증
     data = response.json()
-    assert data["username"] == "test_user_999"
+    assert data["username"] == test_username
     assert "age" in data
 
     # [보안 검증] 응답 객체에 비밀번호가 포함되지 않았는지 확실히 체크
