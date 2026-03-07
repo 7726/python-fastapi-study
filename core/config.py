@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     DB_HOST: str
     DB_PORT: str
     DB_NAME: str
+    DB_TEST_NAME: str
 
     SECRET_KEY: str
     ALGORITHM: str
