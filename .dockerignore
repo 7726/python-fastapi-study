@@ -1,0 +1,33 @@
+# --- Phase 1 & General Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.DS_Store
+Thumbs.db
+
+# --- Phase 2: Virtual Environment (가상환경) ---
+# 가상환경 폴더는 용량이 크고 로컬 종속적이므로 절대 올리지 않습니다.
+venv/
+env/
+.venv/
+.env/
+
+# --- Phase 3 & 4 & 5: Security & DB Config (가장 중요!) ---
+# DB 접속 정보(ID/PW), JWT Secret Key 등이 들어갈 설정 파일
+.env
+.env.*
+!.env.example
+!.env.template
+
+# --- Phase 6: Testing & Coverage ---
+# Pytest 실행 시 생기는 캐시 파일들
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# --- IDE Settings (개인 설정 파일) ---
+# VS Code, PyCharm 등의 개인 설정은 팀원과 공유하지 않는 게 원칙입니다.
+.idea/
+.vscode/
+*.swp
