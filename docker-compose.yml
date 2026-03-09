@@ -1,0 +1,33 @@
+services:
+  # 1. DB 컨테이너 (MySQL)
+  db:
+    image: mysql:8.0
+    container_name: my_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    ports:
+      # 내 PC의 3307 포트를 컨테이너의 내 MySQL 포트로 연결
+      - "3307:${DB_PORT}"
+    volumes:
+      # DB가 꺼져도 데이터가 날아가지 않게 하드디스크에 보관(Mount)
+      - mysql_data:/var/lib/mysql
+
+  # 2. API 컨테이너 (FastAPI)
+  api:
+    build: .  # 현재 폴더에 있는 Dockerfile을 읽어서 이미지를 굽기
+    container_name: my_fastapi
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env  # api 컨테이너 내부로 .env 변수들을 통째로 밀어 넣음
+    environment:
+      # 컨테이너끼리는 'localhost'가 아니라 '서비스명(db)'으로 통신
+      # .env에 있는 DB_HOST=127.0.0.1 설정을 여기서 'db'로 덮어씌움
+      - DB_HOST=db
+      - DB_PORT=${DB_PORT}
+    depends_on:
+      - db  # DB 컨테이너가 먼저 켜진 다음에 API 컨테이너를 킬 것
+
+volumes:
+  mysql_data:
