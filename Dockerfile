@@ -1,5 +1,5 @@
 # 1. Base Image: Python 3.12의 가벼운(Slim) 버전을 OS로 사용하겠다.
-FROM python:3.12-silm
+FROM python:3.12-slim
 
 # 2. 작업 디렉토리: 컨테이너 내부에서 우리가 머물 폴더 경로를 /app 으로 잡는다.
 WORKDIR /app

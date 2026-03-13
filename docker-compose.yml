@@ -13,6 +13,13 @@ services:
       # DB가 꺼져도 데이터가 날아가지 않게 하드디스크에 보관(Mount)
       - mysql_data:/var/lib/mysql
 
+      # 5초마다 MySQL에 핑을 보내서 진짜 켜졌는지 확인
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   # 2. API 컨테이너 (FastAPI)
   api:
     build: .  # 현재 폴더에 있는 Dockerfile을 읽어서 이미지를 굽기
@@ -27,7 +34,8 @@ services:
       - DB_HOST=db
       - DB_PORT=${DB_PORT}
     depends_on:
-      - db  # DB 컨테이너가 먼저 켜진 다음에 API 컨테이너를 킬 것
+      db:
+        condition: service_healthy # db 컨테이너가 준비 완료 될 때까지 대기
 
 volumes:
   mysql_data:
